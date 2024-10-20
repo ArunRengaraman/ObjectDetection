@@ -9,3 +9,7 @@ tensorflow==2.14.0
 imageai==3.0.0
 scikit-image==0.21.0
 pyyaml==6.0
+torch==2.5.0
+torchvision==0.20.0
+numpy==1.24.2
+setuptools>=58.0.0
