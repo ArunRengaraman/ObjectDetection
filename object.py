@@ -7,18 +7,24 @@ import time
 
 # Function to load a specific model
 def load_model(model_name):
-    if model_name == "YOLOv5":
-        model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
-    elif model_name == "Faster R-CNN":
-        model = torch.hub.load('facebookresearch/detectron2', 'faster_rcnn_R_50_FPN', pretrained=True)
-    elif model_name == "SSD":
-        model = torch.hub.load('NVIDIA/DeepLearningExamples:torchhub', 'nvidia_ssd')
-    elif model_name == "EfficientDet":
-        model = torch.hub.load('rwightman/efficientdet', 'efficientdet_d0')
-    elif model_name == "RetinaNet":
-        model = torch.hub.load('NVIDIA/DeepLearningExamples:torchhub', 'nvidia_retinanet')
-    else:
-        st.error("Model not supported")
+    try:
+        if model_name == "YOLOv5":
+            model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
+        elif model_name == "Faster R-CNN":
+            from torchvision.models.detection import fasterrcnn_resnet50_fpn
+            model = fasterrcnn_resnet50_fpn(pretrained=True)
+            model.eval()  # Set model to evaluation mode
+        elif model_name == "SSD":
+            model = torch.hub.load('NVIDIA/DeepLearningExamples:torchhub', 'nvidia_ssd')
+        elif model_name == "EfficientDet":
+            model = torch.hub.load('rwightman/efficientdet', 'efficientdet_d0')
+        elif model_name == "RetinaNet":
+            model = torch.hub.load('NVIDIA/DeepLearningExamples:torchhub', 'nvidia_retinanet')
+        else:
+            st.error("Model not supported")
+            return None
+    except Exception as e:
+        st.error(f"Error loading model {model_name}: {e}")
         return None
     return model
 
@@ -33,22 +39,20 @@ def preprocess_image(image, model_name):
 # Perform detection and draw bounding boxes
 def detect_and_draw(model, image, model_name):
     img = preprocess_image(image, model_name)
-    
     if model_name == "YOLOv5":
-        results = model(img)  # YOLO inference
+        results = model(img)
         results.show()
         return results.render()[0]
-
-    elif model_name in ["Faster R-CNN", "SSD", "EfficientDet", "RetinaNet"]:
-        # Convert image to tensor
-        input_tensor = torch.tensor(np.transpose(img, (2, 0, 1)) / 255.).float()
-        input_tensor = input_tensor.unsqueeze(0)  # Add batch dimension
-        
-        results = model(input_tensor)  # Detection
-        st.image(np.array(img), caption="Detection Result")
+    elif model_name == "Faster R-CNN":
+        input_tensor = [torch.tensor(np.transpose(img, (2, 0, 1)) / 255.).float()]
+        with torch.no_grad():
+            predictions = model(input_tensor)
+        for prediction in predictions:
+            boxes = prediction['boxes'].cpu().numpy().astype(int)
+            for box in boxes:
+                cv2.rectangle(img, (box[0], box[1]), (box[2], box[3]), (255, 0, 0), 2)
         return img
-    
-    return img
+
 
 # Streamlit user interface
 st.title("Real-Time Object Detection")
